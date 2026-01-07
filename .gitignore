@@ -1,0 +1,14 @@
+﻿# 构建缓存
+out/
+build/
+
+# 第三方库（体积巨大，本地自备）
+third_party/
+.vs/
+
+# 大体积数据
+*.tif
+*.tiff
+*.pdb
+*.dll
+*.exe
