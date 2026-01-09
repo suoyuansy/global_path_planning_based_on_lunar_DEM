@@ -1,6 +1,7 @@
 #include "Dem.hpp"
 #include <sstream>
 #include <stdexcept>
+#include <iostream>
 
 void Dem::setRaw(const cv::Mat& raw) {
     if (raw.empty()) {
@@ -11,6 +12,7 @@ void Dem::setRaw(const cv::Mat& raw) {
     }
     raw_ = raw.clone();
     cv_type_ = raw_.type();
+    //std::cout << "raw[0,0] = " << raw.at<float>(0, 999) << std::endl;
 }
 
 const cv::Mat& Dem::raw() const { return raw_; }
@@ -23,6 +25,7 @@ void Dem::setDemMeters(const cv::Mat& dem_m) {
         throw std::runtime_error("Dem::setDemMeters: dem must be CV_64FC1 single-channel.");
     }
     dem_m_ = dem_m.clone();
+    //std::cout << "dem[0,0] = " << dem_m_.at<double>(500, 500) << std::endl;
 }
 
 const cv::Mat& Dem::demMeters() const { return dem_m_; }
