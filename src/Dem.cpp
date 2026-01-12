@@ -1,80 +1,123 @@
 #include "Dem.hpp"
-#include <sstream>
-#include <stdexcept>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <iomanip>
+#include <stdexcept>
 
-void Dem::setRaw(const cv::Mat& raw) {
-    if (raw.empty()) {
-        throw std::runtime_error("Dem::setRaw: raw is empty.");
+Dem::Dem(const std::string& tiff_path,const std::string& out_img_dir,const std::string& out_txt_dir)
+{
+	namespace fs = std::filesystem;
+	fs::create_directories(out_img_dir);
+	fs::create_directories(out_txt_dir);
+
+	readTiff_(tiff_path);      // 1. 读
+	decodeToMeters_();         // 2. 解码
+	exportResults_(out_img_dir, out_txt_dir + "/dem.txt"); // 3. 导出
+}
+
+/* ---------------- 1. 读 TIFF ---------------- */
+void Dem::readTiff_(const std::string& path)
+{
+	cv::Mat img = cv::imread(path, cv::IMREAD_UNCHANGED);
+	if (img.empty()) throw std::runtime_error("Cannot read TIFF: " + path);
+	if (img.channels() != 1) throw std::runtime_error("TIFF must be single-channel");
+	const int d = img.depth();
+	if (d != CV_32F && d != CV_32S)
+		throw std::runtime_error("TIFF depth must be CV_32F or CV_32S");
+	raw_ = img.clone();
+    std::cout << "Raw DEM loaded: " << width() << " x " << height() << std::endl;
+    std::cout << "OpenCV raw type: " << d << "\n";
+}
+
+/* ---------------- 2. 解码到米 ---------------- */
+void Dem::decodeToMeters_()
+{
+    const int d = raw_.depth();
+    dem_m_.create(raw_.size(), CV_64FC1);
+    if (d == CV_32S) {
+        double min_elev = 0, max_elev = 0;
+        std::cout << "Raw is CV_32S (encoded). Enter elevation range:\n";
+        std::cout << "MIN elevation (m): ";  std::cin >> min_elev;
+        std::cout << "MAX elevation (m): ";  std::cin >> max_elev;
+        if (max_elev <= min_elev)
+            throw std::runtime_error("Max must be > min");
+        min_elev_m_ = min_elev;
+        delta_h_m_ = max_elev - min_elev;
+        const double scale = delta_h_m_ / 4294967296.0; // 2^32
+        for (int y = 0; y < raw_.rows; ++y) {
+            const int32_t* src = raw_.ptr<int32_t>(y);
+            double* dst = dem_m_.ptr<double>(y);
+            for (int x = 0; x < raw_.cols; ++x) {
+                uint32_t u = static_cast<uint32_t>(src[x]);
+                dst[x] = u * scale + min_elev_m_;
+            }
+        }
     }
-    if (raw.channels() != 1) {
-        throw std::runtime_error("Dem::setRaw: raw must be single-channel.");
-    }
-    raw_ = raw.clone();
-    cv_type_ = raw_.type();
-    //std::cout << "raw[0,0] = " << raw.at<float>(0, 999) << std::endl;
-}
-
-const cv::Mat& Dem::raw() const { return raw_; }
-
-void Dem::setDemMeters(const cv::Mat& dem_m) {
-    if (dem_m.empty()) {
-        throw std::runtime_error("Dem::setDemMeters: dem is empty.");
-    }
-    if (dem_m.type() != CV_64FC1 || dem_m.channels() != 1) {
-        throw std::runtime_error("Dem::setDemMeters: dem must be CV_64FC1 single-channel.");
-    }
-    dem_m_ = dem_m.clone();
-    //std::cout << "dem[0,0] = " << dem_m_.at<double>(500, 500) << std::endl;
-}
-
-const cv::Mat& Dem::demMeters() const { return dem_m_; }
-
-
-void Dem::setElevationEncoding(double min_elev_m, double delta_h_m) {
-    if (delta_h_m <= 0.0) {
-        throw std::runtime_error("Dem::setElevationEncoding: delta_h_m must be > 0.");
-    }
-    min_elev_m_ = min_elev_m;
-    delta_h_m_ = delta_h_m;
-    has_encoding_ = true;
-}
-
-bool Dem::hasElevationEncoding() const {
-    return has_encoding_;
-}
-
-double Dem::minElevationM() const {
-    return min_elev_m_;
-}
-
-double Dem::maxElevationM() const {
-    return min_elev_m_ + delta_h_m_;
-}
-
-double Dem::deltaHeightM() const {
-    return delta_h_m_;
-}
-
-int Dem::width() const { return raw_.cols; }
-int Dem::height() const { return raw_.rows; }
-int Dem::cvType() const { return cv_type_; }
-
-std::string Dem::summary() const {
-    std::ostringstream oss;
-    oss << "DEM Summary\n";
-    oss << "Size: " << width() << " x " << height() << "\n";
-    oss << "OpenCV raw type: " << cv_type_ << "\n";
-
-    if (has_encoding_) {
-        oss << "Min elevation (m): " << min_elev_m_ << "\n";
-        oss << "Max elevation (m): " << maxElevationM() << "\n";
-        oss << "Height range ΔH (m): " << delta_h_m_ << "\n";
+    else if (d == CV_32F) {   
+        std::cout << "Raw is CV_32F (already meters).No manual range needed.\n";
+        for (int y = 0; y < raw_.rows; ++y) {
+            const float* src = raw_.ptr<float>(y);
+            double* dst = dem_m_.ptr<double>(y);
+            for (int x = 0; x < raw_.cols; ++x) {
+                dst[x] = static_cast<double>(src[x]);
+            }
+        }
     }
     else {
-        oss << "Elevation encoding: (not set)\n";
+        throw std::runtime_error("Unexpected depth in decodeToMeters_");
     }
+}
 
-    oss << "DEM meters ready: " << (!dem_m_.empty() ? "YES" : "NO") << "\n";
-    return oss.str();
+/* ---------------- 3. 导出结果 ---------------- */
+void Dem::exportResults_(const std::string& img_dir,const std::string& txt_path) const
+{
+    /* ---- 3.1 文本 ---- */
+    std::ofstream fs(txt_path);
+    if (!fs) throw std::runtime_error("Cannot write: " + txt_path);
+    fs << std::fixed << std::setprecision(3);
+    for (int r = 0; r < dem_m_.rows; ++r) {
+        for (int c = 0; c < dem_m_.cols; ++c) {
+            fs << dem_m_.at<double>(r, c) << (c + 1 < dem_m_.cols ? ' ' : '\n');
+        }
+    }
+    fs.close();
+
+    /* ---- 3.2 预览图 ---- */
+    saveImage_(img_dir + "/raw_8u.png", to8U_(raw_));
+    saveImage_(img_dir + "/raw_16u.png", to16U_(raw_));
+
+     std::cout << "\nOutputs:\n";
+     std::cout << "  " << txt_path << "/dem.txt\n";
+     std::cout << "  " << img_dir << "/raw_8u.png\n";
+     std::cout << "  " << img_dir << "/raw_16u.png\n";
+}
+
+cv::Mat Dem::normalize01_(const cv::Mat & src)
+{
+    cv::Mat f; src.convertTo(f, CV_64F);
+    double mn, mx; cv::minMaxLoc(f, &mn, &mx);
+    double denom = (mx > mn) ? (mx - mn) : 1.0;
+    return (f - mn) * (1.0 / denom);
+}
+cv::Mat Dem::to8U_(const cv::Mat & src)
+{
+    cv::Mat n = normalize01_(src);
+    cv::Mat out; 
+    n.convertTo(out, CV_8U, 255.0); 
+    return out;
+}
+cv::Mat Dem::to16U_(const cv::Mat & src)
+{
+    cv::Mat n = normalize01_(src);
+    cv::Mat out; 
+    n.convertTo(out, CV_16U, 65535.0); 
+    return out;
+}
+
+void Dem::saveImage_(const std::string & path, const cv::Mat & img) const
+{
+    if (!cv::imwrite(path, img)) throw std::runtime_error("imwrite failed: " + path);
 }
