@@ -1,6 +1,8 @@
 #include "Dem.hpp"
 #include "TerrainSlopeAspect.hpp"
 #include "TerrainRoughness.hpp"
+#include "TerrainStepEdge.hpp"
+#include "TerrainObstacleExpand.hpp"
 
 #include <iostream>
 #include <stdexcept>
@@ -12,8 +14,8 @@ int main() {
 
     try {
         const std::string tiff_path = "data/CE7DEM_1km.tif";
-
         const std::string result_file = "out_put";
+
         namespace fs = std::filesystem;
         fs::create_directories(result_file);   // 保证根目录存在
 
@@ -25,6 +27,14 @@ int main() {
 
         std::cout << "\n******** Part 3:Computing rover-scale roughness & cost, then exporting results ********\n" << std::endl;
         TerrainRoughness rough(dem.demMeters(), result_file);
+
+        std::cout << "\n******** Part 4:Computing step-edge obstacle from DEM ********\n";
+        TerrainStepEdge step(dem.demMeters(), result_file);  
+
+        std::cout << "\n******** Part 5:Expanding obstacle masks for safe planning ********\n";
+        TerrainObstacleExpand expand(tsa.obstacle(), rough.obstacle(), step.step_obstacle(), result_file); 
+
+
 
         return 0;
     }
