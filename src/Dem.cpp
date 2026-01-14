@@ -79,6 +79,8 @@ void Dem::decodeToMeters_()
 /* ---------------- 导出结果 ---------------- */
 void Dem::exportResults_()
 {
+    std::cout << "\nOutputs:\n";
+
     /* ---- 文本 ---- */
     const std::string txt_path = out_txt_dir_ + "/dem.txt";
     std::ofstream fs(txt_path);
@@ -90,13 +92,12 @@ void Dem::exportResults_()
             fs << row[c] << (c + 1 < dem_m_.cols ? ' ' : '\n');
         }
     }
+
+    std::cout << "  " << txt_path << "\n";
     /* ---- 图 ---- */
     savePng_(out_img_dir_ + "/raw_8u.png", to8U_(raw_));
-    savePng_(out_img_dir_ + "/raw_16u.png", to16U_(raw_));
-
-    std::cout << "\nOutputs:\n";
-    std::cout << "  " << txt_path << "\n";
     std::cout << "  " << out_img_dir_ << "/raw_8u.png\n";
+    savePng_(out_img_dir_ + "/raw_16u.png", to16U_(raw_));
     std::cout << "  " << out_img_dir_ << "/raw_16u.png\n";
 }
 

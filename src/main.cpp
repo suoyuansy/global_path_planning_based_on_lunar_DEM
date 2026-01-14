@@ -3,6 +3,7 @@
 #include "TerrainRoughness.hpp"
 #include "TerrainStepEdge.hpp"
 #include "TerrainObstacleExpand.hpp"
+#include "TerrainCostmapFusion.hpp"
 
 #include <iostream>
 #include <stdexcept>
@@ -25,15 +26,17 @@ int main() {
         std::cout << "\n******** Part 2:Computing slope, aspect and terrain costs, then exporting results ********\n" << std::endl;
         TerrainSlopeAspect tsa(dem.demMeters(), result_file);
 
-        std::cout << "\n******** Part 3:Computing rover-scale roughness & cost, then exporting results ********\n" << std::endl;
+        std::cout << "\n******** Part 3:Computing rover-scale roughness and cost, then exporting results ********\n" << std::endl;
         TerrainRoughness rough(dem.demMeters(), result_file);
 
-        std::cout << "\n******** Part 4:Computing step-edge obstacle from DEM ********\n";
+        std::cout << "\n******** Part 4:Computing step-edge and cost, then exporting results ********\n";
         TerrainStepEdge step(dem.demMeters(), result_file);  
 
         std::cout << "\n******** Part 5:Expanding obstacle masks for safe planning ********\n";
         TerrainObstacleExpand expand(tsa.obstacle(), rough.obstacle(), step.step_obstacle(), result_file); 
 
+        std::cout << "\n******** Part 6:Fusing 16 costmaps for all planning strategies, then exporting results ********\n";
+        TerrainCostmapFusion fusion(tsa, rough, step, expand, result_file);
 
 
         return 0;

@@ -94,24 +94,23 @@ void TerrainSlopeAspect::buildCost_()
 /* ----------  导出 txt ---------- */
 void TerrainSlopeAspect::export_file()
 {
+	std::cout << "\nOutputs:\n";
 	// 5 个 txt
 	exportText_(slope_deg_, out_txt_dir_ + "/slope_deg.txt", 3);
+	std::cout << "  " << out_txt_dir_ << "/slope_deg.txt\n";
 	exportText_(aspect_deg_, out_txt_dir_ + "/aspect_deg.txt", 3);
+	std::cout << "  " << out_txt_dir_ << "/aspect_deg.txt\n";
 	exportText_(obstacle_, out_txt_dir_ + "/obstacle.txt");
+	std::cout << "  " << out_txt_dir_ << "/obstacle.txt\n";
 	exportText_(cost_distance_, out_txt_dir_ + "/cost_distance.txt", 3);
+	std::cout << "  " << out_txt_dir_ << "/cost_distance.txt\n";
 	exportText_(cost_slope_, out_txt_dir_ + "/cost_slope.txt", 3);
+	std::cout << "  " << out_txt_dir_ << "/cost_slope.txt\n";
 
 	// 2 个 png
 	savePng_(out_img_dir_ + "/slope_deg.png",visualizePNG_(slope_deg_, theta_max_));
-	savePng_(out_img_dir_ + "/obstacle.png",visualizePNG_(obstacle_, theta_max_));
-
-	std::cout << "\nOutputs:\n";
-	std::cout << "  " << out_txt_dir_ << "/slope_deg.txt\n";
-	std::cout << "  " << out_txt_dir_ << "/aspect_deg.txt\n";
-	std::cout << "  " << out_txt_dir_ << "/obstacle.txt\n";
-	std::cout << "  " << out_txt_dir_ << "/cost_distance.txt\n";
-	std::cout << "  " << out_txt_dir_ << "/cost_slope.txt\n";
 	std::cout << "  " << out_img_dir_ << "/slope_deg.png\n";
+	savePng_(out_img_dir_ + "/obstacle.png",visualizePNG_(obstacle_, theta_max_));
 	std::cout << "  " << out_img_dir_ << "/obstacle.png\n";
 }
 

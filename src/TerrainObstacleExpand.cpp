@@ -30,7 +30,7 @@ TerrainObstacleExpand::TerrainObstacleExpand(const cv::Mat& slope_obs,const cv::
     export_file_();
 }
 
-/* ---------- 障碍膨胀（k×k 全 1 卷积） ---------- */
+/* ---------- 障碍膨胀（k×k 卷积） ---------- */
 void TerrainObstacleExpand::expandSingle_(const cv::Mat& src,cv::Mat& dst,int k) const
 {
     const int rows = src.rows;
@@ -41,6 +41,7 @@ void TerrainObstacleExpand::expandSingle_(const cv::Mat& src,cv::Mat& dst,int k)
     dst.create(src.size(), CV_8UC1);
     dst = cv::Scalar(0);                      
 
+    //这里应该考虑border与边界范围的关系，分为边界内，border内以及边界与border之间三个范围进行考虑，还不完善
     for (int y = border; y < rows - border; ++y) {
         for (int x = border; x < cols - border; ++x) {
             if (src.at<unsigned char>(y, x) == 1) {
@@ -59,7 +60,7 @@ void TerrainObstacleExpand::expandSingle_(const cv::Mat& src,cv::Mat& dst,int k)
         }
     }
 
-    /* 最后复制 1-pixel 边框（不膨胀） */
+    /* 最后复制边框（不膨胀） */
     for (int y = 0; y < rows; ++y) {
         dst.at<unsigned char>(y, 0) = src.at<unsigned char>(y, 0);
         dst.at<unsigned char>(y, cols - 1) = src.at<unsigned char>(y, cols - 1);
@@ -70,31 +71,30 @@ void TerrainObstacleExpand::expandSingle_(const cv::Mat& src,cv::Mat& dst,int k)
     }
 }
 
-/* ---------- 导出 5 txt + 5 png ---------- */
+/* ---------- 导出 ---------- */
 void TerrainObstacleExpand::export_file_()
 {
+    std::cout << "\nOutputs:\n";
     exportText_(slope_expand_, out_txt_dir_ + "/slope_expand_obstacle.txt");
+    std::cout << "  " << out_txt_dir_ << "/slope_expand_obstacle.txt\n";
     exportText_(rough_expand_, out_txt_dir_ + "/rough_expand_obstacle.txt");
+    std::cout << "  " << out_txt_dir_ << "/rough_expand_obstacle.txt\n";
     exportText_(step_expand_, out_txt_dir_ + "/step_expand_obstacle.txt");
+    std::cout << "  " << out_txt_dir_ << "/step_expand_obstacle.txt\n";
     exportText_(union_mask_, out_txt_dir_ + "/union_obstacle.txt");
+    std::cout << "  " << out_txt_dir_ << "/union_obstacle.txt\n";
     exportText_(union_expand_, out_txt_dir_ + "/union_expand_obstacle.txt");
+    std::cout << "  " << out_txt_dir_ << "/union_expand_obstacle.txt\n";
 
     savePng_(out_img_dir_ + "/slope_expand_obstacle.png", visualizeObs8U_(slope_expand_));
-    savePng_(out_img_dir_ + "/rough_expand_obstacle.png", visualizeObs8U_(rough_expand_));
-    savePng_(out_img_dir_ + "/step_expand_obstacle.png", visualizeObs8U_(step_expand_));
-    savePng_(out_img_dir_ + "/union_obstacle.png", visualizeObs8U_(union_mask_));
-    savePng_(out_img_dir_ + "/union_expand_obstacle.png", visualizeObs8U_(union_expand_));
-
-    std::cout << "\nOutputs:\n";
-    std::cout << "  " << out_txt_dir_ << "/slope_expand_obstacle.txt\n";
-    std::cout << "  " << out_txt_dir_ << "/rough_expand_obstacle.txt\n";
-    std::cout << "  " << out_txt_dir_ << "/step_expand_obstacle.txt\n";
-    std::cout << "  " << out_txt_dir_ << "/union_obstacle.txt\n";
-    std::cout << "  " << out_txt_dir_ << "/union_expand_obstacle.txt\n";
     std::cout << "  " << out_img_dir_ << "/slope_expand_obstacle.png\n";
+    savePng_(out_img_dir_ + "/rough_expand_obstacle.png", visualizeObs8U_(rough_expand_));
     std::cout << "  " << out_img_dir_ << "/rough_expand_obstacle.png\n";
+    savePng_(out_img_dir_ + "/step_expand_obstacle.png", visualizeObs8U_(step_expand_));
     std::cout << "  " << out_img_dir_ << "/step_expand_obstacle.png\n";
+    savePng_(out_img_dir_ + "/union_obstacle.png", visualizeObs8U_(union_mask_));
     std::cout << "  " << out_img_dir_ << "/union_obstacle.png\n";
+    savePng_(out_img_dir_ + "/union_expand_obstacle.png", visualizeObs8U_(union_expand_));
     std::cout << "  " << out_img_dir_ << "/union_expand_obstacle.png\n";
 }
 

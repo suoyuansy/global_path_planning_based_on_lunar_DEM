@@ -17,7 +17,7 @@ find_package(OpenCV REQUIRED)
 #  目前只放了一个空 main.cpp，保证能编译通过
 add_executable(${PROJECT_NAME}        # ${} 是取变量，这里 = 上面 project() 的名字
     src/main.cpp
-   "src/Dem.cpp" "src/TerrainSlopeAspect.cpp" "src/TerrainRoughness.cpp" "src/TerrainStepEdge.cpp" "src/TerrainObstacleExpand.cpp")
+   "src/Dem.cpp" "src/TerrainSlopeAspect.cpp" "src/TerrainRoughness.cpp" "src/TerrainStepEdge.cpp" "src/TerrainObstacleExpand.cpp" "src/TerrainCostmapFusion.cpp")
 
 # 把头文件搜索路径告诉编译器，这样写 #include "xxx.h" 时不用写相对路径
 target_include_directories(${PROJECT_NAME}

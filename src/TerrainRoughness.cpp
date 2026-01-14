@@ -85,20 +85,19 @@ void TerrainRoughness::buildCost_()
 /* ---------- µ¼³ö  ---------- */
 void TerrainRoughness::export_file() 
 {
+    std::cout << "\nOutputs:\n";
     exportText_(roughness_, out_txt_dir_ + "/roughness_lv.txt", 3);
+    std::cout << "  " << out_txt_dir_ << "/roughness_lv.txt\n";
     exportText_(cost_dist_, out_txt_dir_ + "/cost_rough_distance.txt", 3);
+    std::cout << "  " << out_txt_dir_ << "/cost_rough_distance.txt\n";
     exportText_(cost_roll_, out_txt_dir_ + "/cost_rough_rollover.txt", 3);
+    std::cout << "  " << out_txt_dir_ << "/cost_rough_rollover.txt\n";
     exportText_(obstacle_, out_txt_dir_ + "/obstacle_rough.txt");
+    std::cout << "  " << out_txt_dir_ << "/obstacle_rough.txt\n";
 
     savePng_(out_img_dir_ + "/roughness_lv.png", visualizePNG_(roughness_, Lv_max_));
-    savePng_(out_img_dir_ + "/obstacle_rough.png", visualizePNG_(obstacle_, Lv_max_));
-
-    std::cout << "\nOutputs:\n";
-    std::cout << "  " << out_txt_dir_ << "/roughness_lv.txt\n";
-    std::cout << "  " << out_txt_dir_ << "/cost_rough_distance.txt\n";
-    std::cout << "  " << out_txt_dir_ << "/cost_rough_rollover.txt\n";
-    std::cout << "  " << out_txt_dir_ << "/obstacle_rough.txt\n";
     std::cout << "  " << out_img_dir_ << "/roughness_lv.png\n";
+    savePng_(out_img_dir_ + "/obstacle_rough.png", visualizePNG_(obstacle_, Lv_max_));
     std::cout << "  " << out_img_dir_ << "/obstacle_rough.png\n";
 }
 
