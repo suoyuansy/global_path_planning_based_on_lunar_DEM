@@ -26,5 +26,6 @@ private:
     static cv::Mat normalize01_(const cv::Mat& src);
     static cv::Mat to8U_(const cv::Mat& src);
     static cv::Mat to16U_(const cv::Mat& src);
+    static cv::Mat colorElevation_(const cv::Mat& dem_m);
     static void  savePng_(const std::string& path, const cv::Mat& img);
 };

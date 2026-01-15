@@ -1,5 +1,5 @@
 #include "Dem.hpp"
-#include <opencv2/imgcodecs.hpp>
+#include <opencv2/opencv.hpp>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -94,11 +94,16 @@ void Dem::exportResults_()
     }
 
     std::cout << "  " << txt_path << "\n";
-    /* ---- 图 ---- */
+    /* ---- 灰度图 ---- */
     savePng_(out_img_dir_ + "/raw_8u.png", to8U_(raw_));
     std::cout << "  " << out_img_dir_ << "/raw_8u.png\n";
     savePng_(out_img_dir_ + "/raw_16u.png", to16U_(raw_));
     std::cout << "  " << out_img_dir_ << "/raw_16u.png\n";
+
+    /* ---- 彩色高程图 ---- */
+    cv::Mat color_dem = colorElevation_(dem_m_);
+    savePng_(out_img_dir_ + "/elevation_color.png", color_dem);
+    std::cout << "  " << out_img_dir_ << "/elevation_color.png\n";
 }
 
 /* ---------- 工具函数 ---------- */
@@ -119,6 +124,31 @@ cv::Mat Dem::to16U_(const cv::Mat& src)
     cv::Mat n = normalize01_(src);
     cv::Mat out; n.convertTo(out, CV_16U, 65535.0); return out;
 }
+/* ---------- 伪彩色：蓝(低) -> 红(高) ---------- */
+cv::Mat Dem::colorElevation_(const cv::Mat& dem_m)
+{
+    CV_Assert(dem_m.type() == CV_64FC1);
+
+    double minVal, maxVal;
+    cv::minMaxLoc(dem_m, &minVal, &maxVal);
+    const double denom = (maxVal > minVal) ? (maxVal - minVal) : 1.0;
+
+    cv::Mat color(dem_m.size(), CV_8UC3);   // BGR
+    for (int y = 0; y < dem_m.rows; ++y) {
+        const double* src = dem_m.ptr<double>(y);
+        cv::Vec3b* dst = color.ptr<cv::Vec3b>(y);
+        for (int x = 0; x < dem_m.cols; ++x) {
+            double t = (src[x] - minVal) / denom;        // 0~1
+            t = std::clamp(t, 0.0, 1.0);
+            /* 蓝(255,0,0) -> 红(0,0,255) 线性插值 */
+            uchar b = static_cast<uchar>((1.0 - t) * 255);
+            uchar r = static_cast<uchar>(t * 255);
+            dst[x] = cv::Vec3b(b, 0, r);
+        }
+    }
+    return color;
+}
+
 void Dem::savePng_(const std::string& path, const cv::Mat& img)
 {
     if (!cv::imwrite(path, img)) throw std::runtime_error("imwrite failed: " + path);
