@@ -277,6 +277,21 @@ std::vector<cv::Point> PathPlanning::planAStar_() const {
     open.emplace(0.0, start_pt_.x, start_pt_.y);
     dist.at<double>(start_pt_.y, start_pt_.x) = 0.0;
 
+    /* 安全区检查 lambda */
+    auto safe = [&](int cx, int cy) -> bool {
+        const int R = 2; // 半径
+        for (int dy = -R; dy <= R; ++dy) {
+            for (int dx = -R; dx <= R; ++dx) {
+                int nx = cx + dx;
+                int ny = cy + dy;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) return false; // 越界也算不安全
+                if (isObstacle_(nx, ny)) return false;                   // 发现障碍
+            }
+        }
+        return true;
+    };
+
+
     while (!open.empty()) {
         auto [f, cx, cy] = open.top(); open.pop();
         if (visited.at<uchar>(cy, cx)) continue;
@@ -288,7 +303,9 @@ std::vector<cv::Point> PathPlanning::planAStar_() const {
             int ny = cy + dy[dir];
             if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
             // 使用原始 costmap_ 检测障碍物（保持不变）
-            if (isObstacle_(nx, ny)) continue;
+            //if (isObstacle_(nx, ny)) continue;
+            /***** 安全区筛选 *****/
+            if (!safe(nx, ny)) continue;
             if (visited.at<uchar>(ny, nx)) continue;
 
             // 使用 costmap_add_ 计算代价
@@ -462,6 +479,9 @@ void PathPlanning::onMouse_(int x, int y) {
             reject_pts_.push_back(cv::Point(x, y));
         }
         arti_counter_++;
+
+        redraw_();
+        cv::waitKey(50);
 
         std::string type_str = is_guide_next_ ? "guide" : "reject";
         std::cout << "Artificial " << type_str << " point selected: (" << x << "," << y << ")\n";
