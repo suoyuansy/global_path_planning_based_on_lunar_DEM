@@ -5,7 +5,7 @@
 class TerrainRoughness {
 
 public:
-    TerrainRoughness(const cv::Mat& dem_m, const std::string& root_out,double grid_size = 1.0,double Lv_max = 0.15,double inf_cost = 1e10);
+    TerrainRoughness(const cv::Mat& dem_m, const std::string& root_out,double grid_size = 1.0,double Lv_max = 0.15,double inf_cost = 1e10, bool export_file_flag = true);
     /* ---- Ö»¶Á³É¹û ---- */
     const cv::Mat& roughness()      const { return roughness_; }
     const cv::Mat& cost_distance()  const { return cost_dist_; }

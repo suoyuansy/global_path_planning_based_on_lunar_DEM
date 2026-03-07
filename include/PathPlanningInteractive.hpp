@@ -2,10 +2,11 @@
 #include <opencv2/core.hpp>
 #include <string>
 #include <vector>
+#include "PathPlanner.hpp"
 
-class PathPlanning {
+class PathPlanningInteractive {
 public:
-    explicit PathPlanning(const std::string& color_png_path);
+    explicit PathPlanningInteractive(const std::string& color_png_path);
 
 private:
     //文件路径
@@ -19,9 +20,8 @@ private:
     cv::Mat costmap_;                    // CV_64FC1  1.0=障碍 存储原始代价图
     cv::Mat costmap_add_;                // 叠加的代价图 可以用costmap_还原
 
-
-    cv::Point start_pt_;
-    cv::Point goal_pt_;
+    cv::Point start_pt_ = cv::Point(-1, -1);
+    cv::Point goal_pt_ = cv::Point(-1, -1);
 
     int  strategy_ = 0;     // 1 slope 2 rough 3 step 4 merge
     bool dist_first_ = false;
@@ -38,6 +38,7 @@ private:
 
     int radius = 100;  // 圆形影响范围半径（像素）
 
+    PathPlanner::Method planning_method_ = PathPlanner::Method::AStar;//使用A*方法
 
     void consoleInput_();
     void loadColorImage_();
@@ -48,7 +49,6 @@ private:
     
     void redraw_(const std::vector<cv::Point>& path = {});
     bool isObstacle_(int x, int y) const { return std::abs(costmap_.at<double>(y, x) - 1.0) < 1e-6; }
-    std::vector<cv::Point> planAStar_() const;
     void savePath_(const std::vector<cv::Point>& path) const;
     static void mouseCallback_(int event, int x, int y, int flags, void* userdata);
     void onMouse_(int x, int y);

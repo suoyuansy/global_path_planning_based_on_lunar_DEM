@@ -6,16 +6,9 @@
 #include <stdexcept>
 
 /* ---------------- 对外入口 ---------------- */
-TerrainObstacleExpand::TerrainObstacleExpand(const cv::Mat& slope_obs,const cv::Mat& rough_obs,const cv::Mat& step_obs,const std::string& root_out,double expand_mm,double grid_size_m)
+TerrainObstacleExpand::TerrainObstacleExpand(const cv::Mat& slope_obs,const cv::Mat& rough_obs,const cv::Mat& step_obs,const std::string& root_out,double expand_mm,double grid_size_m, bool export_file_flag)
   : slope_obs_(slope_obs), rough_obs_(rough_obs), step_obs_(step_obs),expand_mm_(expand_mm), grid_m_(grid_size_m), root_out_(root_out)
 {
-    namespace fs = std::filesystem;
-    const std::string root = root_out + "/TerrainObstacleExpand";
-    fs::create_directories(root);
-    out_txt_dir_ = root + "/out_txt_file";
-    out_img_dir_ = root + "/out_image_file";
-    fs::create_directories(out_txt_dir_);
-    fs::create_directories(out_img_dir_);
 
     int k = static_cast<int>(std::round(expand_mm / 1000.0 / grid_size_m));
     if (k < 1) k = 1;
@@ -27,7 +20,17 @@ TerrainObstacleExpand::TerrainObstacleExpand(const cv::Mat& slope_obs,const cv::
     union_mask_ = slope_obs_ | rough_obs_ | step_obs_;          // 逻辑或
     expandSingle_(union_mask_, union_expand_, k);
 
-    export_file_();
+    if (export_file_flag)
+    {
+        namespace fs = std::filesystem;
+        const std::string root = root_out + "/TerrainObstacleExpand";
+        fs::create_directories(root);
+        out_txt_dir_ = root + "/out_txt_file";
+        out_img_dir_ = root + "/out_image_file";
+        fs::create_directories(out_txt_dir_);
+        fs::create_directories(out_img_dir_);
+        export_file_();
+    }
 }
 
 /* ---------- 障碍膨胀（k×k 卷积） ---------- */

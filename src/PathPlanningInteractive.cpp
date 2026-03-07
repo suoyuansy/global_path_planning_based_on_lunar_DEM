@@ -1,4 +1,4 @@
-﻿#include "PathPlanning.hpp"
+﻿#include "PathPlanningInteractive.hpp"
 #include <opencv2/opencv.hpp>
 #include <filesystem>
 #include <fstream>
@@ -7,11 +7,12 @@
 #include <unordered_set>
 #include <algorithm>
 #include <iomanip>
+#include "PathPlanner.hpp"
 
 namespace fs = std::filesystem;
 
 /* ---------------- 构造  ---------------- */
-PathPlanning::PathPlanning(const std::string& color_png_path)
+PathPlanningInteractive::PathPlanningInteractive(const std::string& color_png_path)
     : color_png_(color_png_path) 
 {
     consoleInput_();      // 用户输入策略
@@ -23,7 +24,7 @@ PathPlanning::PathPlanning(const std::string& color_png_path)
 }
 
 /* ---------------- 控制台输入 ---------------- */
-void PathPlanning::consoleInput_() {
+void PathPlanningInteractive::consoleInput_() {
     std::cout << "Select strategy (1 slope 2 roughness 3 step 4 merge): ";
     std::cin >> strategy_;
     if (strategy_ < 1 || strategy_ > 4) throw std::runtime_error("Invalid strategy");
@@ -49,14 +50,14 @@ void PathPlanning::consoleInput_() {
 }
 
 /* ---------------- 读取底图 ---------------- */
-void PathPlanning::loadColorImage_() {
+void PathPlanningInteractive::loadColorImage_() {
     base_img_ = cv::imread(color_png_);
     if (base_img_.empty()) throw std::runtime_error("Cannot read data/color.png");
     display_ = base_img_.clone();
 }
 
 /* ---------------- 搜索代价文件 ---------------- */
-void PathPlanning::searchCostmapFile_() {
+void PathPlanningInteractive::searchCostmapFile_() {
     std::string keyword;
     switch (strategy_) {
     case 1: keyword = "TerrainSlope"; break;
@@ -83,7 +84,7 @@ void PathPlanning::searchCostmapFile_() {
 }
 
 /* ---------------- 加载代价 ---------------- */
-void PathPlanning::loadCostmap_() {
+void PathPlanningInteractive::loadCostmap_() {
     std::ifstream ifs(costmap_file_);
     if (!ifs) throw std::runtime_error("Cannot read costmap file");
 
@@ -110,7 +111,7 @@ void PathPlanning::loadCostmap_() {
 }
 
 /* ---------------- 显示 + 交互 ---------------- */
-void PathPlanning::showAndInteract_() 
+void PathPlanningInteractive::showAndInteract_()
 {
     redraw_();
     cv::namedWindow("PathPlanning", cv::WINDOW_AUTOSIZE);
@@ -128,7 +129,7 @@ void PathPlanning::showAndInteract_()
 }
 
 /* ---------------- 重绘画布 ---------------- */
-void PathPlanning::redraw_(const std::vector<cv::Point>& path) {
+void PathPlanningInteractive::redraw_(const std::vector<cv::Point>& path) {
     display_ = base_img_.clone();
     // 绘制障碍物（黑色）
     for (int y = 0; y < costmap_.rows; ++y) {
@@ -176,9 +177,9 @@ void PathPlanning::redraw_(const std::vector<cv::Point>& path) {
 }
 
 /* ---------------- 人工代价函数计算 ---------------- */
-double PathPlanning::artificialCostFunction_(double dist, bool is_guide) const {
-    const double K = 0.001;  // 缩放系数
-    const double c = 2.0;  // 高斯函数参数
+double PathPlanningInteractive::artificialCostFunction_(double dist, bool is_guide) const {
+    const double K = 0.01;  // 缩放系数
+    const double c = 5.0;  // 高斯函数参数
 
     if (is_guide) {
         // 使用线性导引代价：Z = K * dist
@@ -199,7 +200,7 @@ double PathPlanning::artificialCostFunction_(double dist, bool is_guide) const {
 }
 
 /* ---------------- 计算单个人工代价图 ---------------- */
-cv::Mat PathPlanning::computeArtificialCostmap_(const cv::Point& center, bool is_guide) const {
+cv::Mat PathPlanningInteractive::computeArtificialCostmap_(const cv::Point& center, bool is_guide) const {
     cv::Mat artificial_cost = cv::Mat::zeros(costmap_.size(), CV_64FC1);
 
     // 计算安全的边界框，确保不越界
@@ -239,13 +240,13 @@ cv::Mat PathPlanning::computeArtificialCostmap_(const cv::Point& center, bool is
 }
 
 /* ---------------- 添加人工代价到costmap_add_ ---------------- */
-void PathPlanning::addArtificialCost_(const cv::Point& center, bool is_guide) {
+void PathPlanningInteractive::addArtificialCost_(const cv::Point& center, bool is_guide) {
     cv::Mat arti_map = computeArtificialCostmap_(center, is_guide);
     cv::add(costmap_add_, arti_map, costmap_add_);
 }
 
 /* ---------------- 生成文件名后缀 ---------------- */
-std::string PathPlanning::generateArtificialSuffix_() const {
+std::string PathPlanningInteractive::generateArtificialSuffix_() const {
     std::string suffix;
     for (const auto& pt : guide_pts_) {
         suffix += "_a(" + std::to_string(pt.x) + "," + std::to_string(pt.y) + ")";
@@ -256,91 +257,8 @@ std::string PathPlanning::generateArtificialSuffix_() const {
     return suffix;
 }
 
-
-/* ---------------- 八方向 A* 规划（欧氏距离） ---------------- */
-std::vector<cv::Point> PathPlanning::planAStar_() const {
-    // 八方向增量
-    const int dx[8] = { 1, 1, 0, -1, -1, -1, 0, 1 };
-    const int dy[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
-    const double step_cost[8] = { 1.0, std::sqrt(2.0), 1.0, std::sqrt(2.0),1.0, std::sqrt(2.0), 1.0, std::sqrt(2.0) }; // 直线 vs 对角线
-
-    // 使用 costmap_add_ 而不是 costmap_
-    int w = costmap_add_.cols, h = costmap_add_.rows;
-
-    cv::Mat visited(h, w, CV_8U, cv::Scalar(0));
-    cv::Mat dist(h, w, CV_64FC1, cv::Scalar(1e10));
-    cv::Mat parent_x(h, w, CV_32S, cv::Scalar(-1));
-    cv::Mat parent_y(h, w, CV_32S, cv::Scalar(-1));
-
-    using Node = std::tuple<double, int, int>; // f = g + h, x, y
-    std::priority_queue<Node, std::vector<Node>, std::greater<>> open;
-    open.emplace(0.0, start_pt_.x, start_pt_.y);
-    dist.at<double>(start_pt_.y, start_pt_.x) = 0.0;
-
-    /* 安全区检查 lambda */
-    auto safe = [&](int cx, int cy) -> bool {
-        const int R = 2; // 半径
-        for (int dy = -R; dy <= R; ++dy) {
-            for (int dx = -R; dx <= R; ++dx) {
-                int nx = cx + dx;
-                int ny = cy + dy;
-                if (nx < 0 || ny < 0 || nx >= w || ny >= h) return false; // 越界也算不安全
-                if (isObstacle_(nx, ny)) return false;                   // 发现障碍
-            }
-        }
-        return true;
-    };
-
-
-    while (!open.empty()) {
-        auto [f, cx, cy] = open.top(); open.pop();
-        if (visited.at<uchar>(cy, cx)) continue;
-        visited.at<uchar>(cy, cx) = 1;
-        if (cx == goal_pt_.x && cy == goal_pt_.y) break;
-
-        for (int dir = 0; dir < 8; ++dir) {
-            int nx = cx + dx[dir];
-            int ny = cy + dy[dir];
-            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-            // 使用原始 costmap_ 检测障碍物（保持不变）
-            //if (isObstacle_(nx, ny)) continue;
-            /***** 安全区筛选 *****/
-            if (!safe(nx, ny)) continue;
-            if (visited.at<uchar>(ny, nx)) continue;
-
-            // 使用 costmap_add_ 计算代价
-            double g = dist.at<double>(cy, cx) + step_cost[dir] + 1000 * costmap_add_.at<double>(ny, nx);
-            if (g < dist.at<double>(ny, nx)) {
-                dist.at<double>(ny, nx) = g;
-                parent_x.at<int>(ny, nx) = cx;
-                parent_y.at<int>(ny, nx) = cy;
-                
-                // 欧氏启发
-                double h = std::hypot(nx - goal_pt_.x, ny - goal_pt_.y);
-                open.emplace(g + h, nx, ny);
-
-            }
-        }
-    }
-
-    /* 回溯路径 */
-    std::vector<cv::Point> path;
-    int cx = goal_pt_.x, cy = goal_pt_.y;
-    if (parent_x.at<int>(cy, cx) == -1) return path; // unreachable
-    while (cx != start_pt_.x || cy != start_pt_.y) {
-        path.emplace_back(cx, cy);
-        int px = parent_x.at<int>(cy, cx);
-        int py = parent_y.at<int>(cy, cx);
-        cx = px; cy = py;
-    }
-    path.emplace_back(start_pt_);
-    std::reverse(path.begin(), path.end());
-    return path;
-}
-
-
 /* ---------------- 保存路径（包含人工点信息） ---------------- */
-void PathPlanning::savePath_(const std::vector<cv::Point>& path) const {
+void PathPlanningInteractive::savePath_(const std::vector<cv::Point>& path) const {
     fs::create_directories("out_put/path_planning");
     std::string base = fs::path(costmap_file_).stem().string();
     
@@ -360,7 +278,7 @@ void PathPlanning::savePath_(const std::vector<cv::Point>& path) const {
 }
 
 /* ---------------- 人工点选择主循环 ---------------- */
-void PathPlanning::selectArtificialPointsLoop_() {
+void PathPlanningInteractive::selectArtificialPointsLoop_() {
 
     std::cout << "\n=== Artificial point #" << (arti_counter_ + 1) << " ===\n";
     std::cout << "Select control point type (1=guide 2=reject 3=finish): ";
@@ -397,13 +315,13 @@ void PathPlanning::selectArtificialPointsLoop_() {
 }
 
 /* ---------------- 鼠标回调 ---------------- */
-void PathPlanning::mouseCallback_(int event, int x, int y, int flags, void* userdata) {
+void PathPlanningInteractive::mouseCallback_(int event, int x, int y, int flags, void* userdata) {
     if (event != cv::EVENT_LBUTTONDOWN) return;
-    auto* self = static_cast<PathPlanning*>(userdata);
+    auto* self = static_cast<PathPlanningInteractive*>(userdata);
     self->onMouse_(x, y);
 }
 
-void PathPlanning::onMouse_(int x, int y) {
+void PathPlanningInteractive::onMouse_(int x, int y) {
     if (x < 0 || y < 0 || x >= costmap_.cols || y >= costmap_.rows) return;
 
     // 选择起点
@@ -437,7 +355,7 @@ void PathPlanning::onMouse_(int x, int y) {
 
         // 规划第一条路径
         std::cout << "Running A* ...\n";
-        auto path = planAStar_();
+        auto path = PathPlanner::plan(planning_method_, costmap_add_, start_pt_, goal_pt_);
         if (path.empty()) {
             std::cout << "No path found!\n";
             current_state_ = State::SELECT_START;
@@ -491,7 +409,7 @@ void PathPlanning::onMouse_(int x, int y) {
 
         // 重新规划路径
         std::cout << "Re-running A* with artificial cost...\n";
-        auto path = planAStar_();
+        auto path = PathPlanner::plan(planning_method_,costmap_add_,start_pt_,goal_pt_);
 
         if (path.empty()) {
             std::cout << "No path found with current artificial points!\n";

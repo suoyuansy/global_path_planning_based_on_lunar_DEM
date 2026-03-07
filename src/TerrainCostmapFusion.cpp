@@ -4,22 +4,28 @@
 #include <iomanip>
 #include <iostream>
 
-TerrainCostmapFusion::TerrainCostmapFusion(const TerrainSlopeAspect& tsa,const TerrainRoughness& rough,const TerrainStepEdge& step,const TerrainObstacleExpand& expand,const std::string& root_out)
+TerrainCostmapFusion::TerrainCostmapFusion(const TerrainSlopeAspect& tsa,const TerrainRoughness& rough,const TerrainStepEdge& step,const TerrainObstacleExpand& expand,const std::string& root_out, bool export_file_flag)
 : root_out_(root_out) 
 {
-	namespace fs = std::filesystem;
-	costmap_dir_ = root_out_ + "/costmap";
-	merge_dir_ = root_out_ + "/Merge";
 
-	fs::create_directories(costmap_dir_);
-	fs::create_directories(merge_dir_);
 	/* 计算两种融合代价 */
 	cv::Mat merge_cost_distance = mergeCost_(rough.cost_distance(),tsa.cost_distance(),step.cost_distance());
 	cv::Mat merge_cost = mergeCost_(rough.cost_rollover(),tsa.cost_slope(),step.cost_step());
+	// 新增：无论是否导出，都把最终需要的 costmap_Merge_expand 保存下来
+	costmap_merge_expand_ = createCostmap_(merge_cost, expand.union_expand());
+	if (export_file_flag)
+	{
+		namespace fs = std::filesystem;
+		costmap_dir_ = root_out_ + "/costmap";
+		merge_dir_ = root_out_ + "/Merge";
 
-	/* 生成 16 种 costmap 并导出 */
-	export_costmap(merge_cost_distance, merge_cost, tsa, rough, step, expand);
+		fs::create_directories(costmap_dir_);
+		fs::create_directories(merge_dir_);
+		/* 生成 16 种 costmap 并导出 */
+		export_costmap(merge_cost_distance, merge_cost, tsa, rough, step, expand);
+	}
 }
+
 
 /* ---------- 生成单张 costmap ---------- */
 cv::Mat TerrainCostmapFusion::createCostmap_(const cv::Mat& cost,const cv::Mat& mask) const 

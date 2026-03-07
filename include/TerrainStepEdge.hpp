@@ -4,7 +4,7 @@
 
 class TerrainStepEdge {
 public:
-    TerrainStepEdge(const cv::Mat& dem_m,const std::string& root_out,double max_step_m = 0.4, double inf_cost = 1e10);
+    TerrainStepEdge(const cv::Mat& dem_m,const std::string& root_out,double max_step_m = 0.4, double inf_cost = 1e10, bool export_file_flag = true);
 
     /* ---- Ö»¶Á³É¹û ---- */
     const cv::Mat& step_gradient() const { return step_gradient_; }

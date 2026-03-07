@@ -7,20 +7,23 @@
 #include <stdexcept>
 #include <cmath>
 
-TerrainSlopeAspect::TerrainSlopeAspect(const cv::Mat& dem_m,const std::string& root_out,double grid_size,double theta_max,double inf_cost)
+TerrainSlopeAspect::TerrainSlopeAspect(const cv::Mat& dem_m,const std::string& root_out,double grid_size,double theta_max,double inf_cost, bool export_file_flag)
 : dem_m_(dem_m), grid_size_(grid_size),theta_max_(theta_max), inf_cost_(inf_cost), root_out_(root_out)
 {
-	namespace fs = std::filesystem;
-	const std::string root = root_out + "/TerrainSlopeAspect";
-	fs::create_directories(root);
-	out_txt_dir_ = root + "/out_txt_file";
-	out_img_dir_ = root + "/out_image_file";
-	fs::create_directories(out_txt_dir_);
-	fs::create_directories(out_img_dir_);
 
 	computeSlopeAspect_();
 	buildCost_();
-	export_file();
+	if (export_file_flag)
+	{
+		namespace fs = std::filesystem;
+		const std::string root = root_out + "/TerrainSlopeAspect";
+		fs::create_directories(root);
+		out_txt_dir_ = root + "/out_txt_file";
+		out_img_dir_ = root + "/out_image_file";
+		fs::create_directories(out_txt_dir_);
+		fs::create_directories(out_img_dir_);
+		export_file();
+	}
 }
 
 /* ----------  ¼ÆËãÆÂ¶È / ÆÂÏò ---------- */

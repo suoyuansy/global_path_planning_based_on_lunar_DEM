@@ -4,7 +4,7 @@
 
 class TerrainObstacleExpand {
 public:
-    TerrainObstacleExpand(const cv::Mat& slope_obs,const cv::Mat& rough_obs,const cv::Mat& step_obs,const std::string& root_out,double expand_mm = 2000.0, double grid_size_m = 1.0);  
+    TerrainObstacleExpand(const cv::Mat& slope_obs,const cv::Mat& rough_obs,const cv::Mat& step_obs,const std::string& root_out,double expand_mm = 2000.0, double grid_size_m = 1.0, bool export_file_flag = true);
 
     const cv::Mat& slope_expand()  const { return slope_expand_; }
     const cv::Mat& rough_expand()  const { return rough_expand_; }

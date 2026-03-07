@@ -8,20 +8,22 @@
 #include <cmath>
 
 /* ---------------- 对外入口 ---------------- */
-TerrainStepEdge::TerrainStepEdge(const cv::Mat& dem_m,const std::string& root_out,double max_step_m, double inf_cost)
+TerrainStepEdge::TerrainStepEdge(const cv::Mat& dem_m,const std::string& root_out,double max_step_m, double inf_cost, bool export_file_flag)
  : dem_m_(dem_m), max_step_(max_step_m), root_out_(root_out), inf_cost_(inf_cost)
 {
-    namespace fs = std::filesystem;
-    const std::string root = root_out + "/TerrainStepEdge";
-    fs::create_directories(root);
-    out_txt_dir_ = root + "/out_txt_file";
-    out_img_dir_ = root + "/out_image_file";
-    fs::create_directories(out_txt_dir_);
-    fs::create_directories(out_img_dir_);
-
     computeGradient_();   // 梯度 + 障碍
     buildCost_();         // 代价矩阵
-    export_file();        // 导出
+    if (export_file_flag)
+    {
+        namespace fs = std::filesystem;
+        const std::string root = root_out + "/TerrainStepEdge";
+        fs::create_directories(root);
+        out_txt_dir_ = root + "/out_txt_file";
+        out_img_dir_ = root + "/out_image_file";
+        fs::create_directories(out_txt_dir_);
+        fs::create_directories(out_img_dir_);
+        export_file();        // 导出
+    }
 }
 
 /* ---------- 梯度 + 障碍 ---------- */

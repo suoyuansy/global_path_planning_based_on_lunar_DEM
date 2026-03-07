@@ -9,24 +9,26 @@
 #include <cmath>
 
 /* ---------------- 对外入口 ---------------- */
-TerrainRoughness::TerrainRoughness(const cv::Mat& dem_m, const std::string& root_out,double grid_size,double Lv_max,double inf_cost)
+TerrainRoughness::TerrainRoughness(const cv::Mat& dem_m, const std::string& root_out,double grid_size,double Lv_max,double inf_cost, bool export_file_flag)
   : dem_m_(dem_m), g_(grid_size), Lv_max_(Lv_max), inf_cost_(inf_cost), root_out_(root_out)
 {
-    namespace fs = std::filesystem;
-
-    /* 根目录下创建 TerrainRoughness */
-    const std::string root = root_out + "/TerrainRoughness";
-    fs::create_directories(root);
-
-    /* 创建两级子目录 */
-    out_txt_dir_ = root + "/out_txt_file";
-    out_img_dir_ = root + "/out_image_file";
-    fs::create_directories(out_txt_dir_);
-    fs::create_directories(out_img_dir_);
-
     computeRoughness_();          // 计算粗糙度 + 障碍
     buildCost_();                 // 两种代价
-    export_file();                // 输出
+    if (export_file_flag)
+    {
+        namespace fs = std::filesystem;
+
+        /* 根目录下创建 TerrainRoughness */
+        const std::string root = root_out + "/TerrainRoughness";
+        fs::create_directories(root);
+
+        /* 创建两级子目录 */
+        out_txt_dir_ = root + "/out_txt_file";
+        out_img_dir_ = root + "/out_image_file";
+        fs::create_directories(out_txt_dir_);
+        fs::create_directories(out_img_dir_);
+        export_file();                // 输出
+    }
 
 }
 

@@ -4,7 +4,7 @@
 
 class TerrainSlopeAspect {
 public:
-    TerrainSlopeAspect(const cv::Mat& dem_m,const std::string& root_out,double grid_size = 1.0,double theta_max = 20.0,double inf_cost = 1e10);
+    TerrainSlopeAspect(const cv::Mat& dem_m,const std::string& root_out,double grid_size = 1.0,double theta_max = 20.0,double inf_cost = 1e10, bool export_file_flag = true);
 
     const cv::Mat& slope_deg()     const { return slope_deg_; }
     const cv::Mat& aspect_deg()    const { return aspect_deg_; }
