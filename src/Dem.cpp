@@ -7,20 +7,33 @@
 #include <stdexcept>
 
 /* ---------------- 对外入口 ---------------- */
-Dem::Dem(const std::string& tiff_path, const std::string& root_out)
-    : root_out_(root_out)
-{
+Dem::Dem(const std::string& tiff_path,
+    const std::string& root_out,
+    bool export_file_flag,
+    bool simple_output_mode)
+    : root_out_(root_out),
+    export_file_flag_(export_file_flag),
+    simple_output_mode_(simple_output_mode) {
     namespace fs = std::filesystem;
-    const std::string root = root_out + "/DEM";
-    fs::create_directories(root);
-    out_img_dir_ = root + "/out_image_file";
-    out_txt_dir_ = root + "/out_txt_file";
-    fs::create_directories(out_img_dir_);
-    fs::create_directories(out_txt_dir_);
 
-    readTiff_(tiff_path);      // 读
-    decodeToMeters_();         // 解码
-    exportResults_();          // 导出
+    if (!simple_output_mode_) {
+        const std::string root = root_out + "/DEM";
+        fs::create_directories(root);
+        out_img_dir_ = root + "/out_image_file";
+        out_txt_dir_ = root + "/out_txt_file";
+        fs::create_directories(out_img_dir_);
+        fs::create_directories(out_txt_dir_);
+    }
+    else {
+        fs::create_directories(root_out_);
+    }
+
+    readTiff_(tiff_path);
+    decodeToMeters_();
+
+    if (export_file_flag_) {
+        exportResults_();
+    }
 }
 
 /* ---------------- 读 TIFF ---------------- */
@@ -77,14 +90,29 @@ void Dem::decodeToMeters_()
 }
 
 /* ---------------- 导出结果 ---------------- */
-void Dem::exportResults_()
-{
+void Dem::exportResults_() {
     std::cout << "\nOutputs:\n";
 
-    /* ---- 文本 ---- */
+    if (simple_output_mode_) {
+        const std::string txt_path = root_out_ + "/dem.txt";
+        std::ofstream fs(txt_path);
+        if (!fs) throw std::runtime_error("Cannot write: " + txt_path);
+
+        fs << std::fixed << std::setprecision(3);
+        for (int r = 0; r < dem_m_.rows; ++r) {
+            const double* row = dem_m_.ptr<double>(r);
+            for (int c = 0; c < dem_m_.cols; ++c) {
+                fs << row[c] << (c + 1 < dem_m_.cols ? ' ' : '\n');
+            }
+        }
+        std::cout << " " << txt_path << "\n";
+        return;
+    }
+
     const std::string txt_path = out_txt_dir_ + "/dem.txt";
     std::ofstream fs(txt_path);
     if (!fs) throw std::runtime_error("Cannot write: " + txt_path);
+
     fs << std::fixed << std::setprecision(3);
     for (int r = 0; r < dem_m_.rows; ++r) {
         const double* row = dem_m_.ptr<double>(r);
@@ -92,18 +120,17 @@ void Dem::exportResults_()
             fs << row[c] << (c + 1 < dem_m_.cols ? ' ' : '\n');
         }
     }
+    std::cout << " " << txt_path << "\n";
 
-    std::cout << "  " << txt_path << "\n";
-    /* ---- 灰度图 ---- */
     savePng_(out_img_dir_ + "/raw_8u.png", to8U_(raw_));
-    std::cout << "  " << out_img_dir_ << "/raw_8u.png\n";
-    savePng_(out_img_dir_ + "/raw_16u.png", to16U_(raw_));
-    std::cout << "  " << out_img_dir_ << "/raw_16u.png\n";
+    std::cout << " " << out_img_dir_ << "/raw_8u.png\n";
 
-    /* ---- 彩色高程图 ---- */
+    savePng_(out_img_dir_ + "/raw_16u.png", to16U_(raw_));
+    std::cout << " " << out_img_dir_ << "/raw_16u.png\n";
+
     cv::Mat color_dem = colorElevation_(dem_m_);
     savePng_(out_img_dir_ + "/elevation_color.png", color_dem);
-    std::cout << "  " << out_img_dir_ << "/elevation_color.png\n";
+    std::cout << " " << out_img_dir_ << "/elevation_color.png\n";
 }
 
 /* ---------- 工具函数 ---------- */

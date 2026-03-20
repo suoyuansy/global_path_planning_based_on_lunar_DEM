@@ -36,7 +36,7 @@ public:
     // output_path 作为主输出文件路径：
     // 1. 保存状态/路径到 output_path
     // 2. 保存 costmap 到 output_path 同目录下的 costmap.txt
-    static void saveResultToFile(const PlanResult& result,const std::string& output_path);
+    static void saveResultToFile(const PlanResult& result,const std::string& output_path,bool Isexportcostmap);
 private:
     static bool isObstacle_(const cv::Mat& costmap, int x, int y);
 };

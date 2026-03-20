@@ -6,57 +6,88 @@
 
 class PathPlanningInteractive {
 public:
+    // 旧模式
     explicit PathPlanningInteractive(const std::string& color_png_path);
 
+    // 新模式：外部固定 costmap + 输出目录
+    PathPlanningInteractive(const std::string& color_png_path,
+        const std::string& costmap_txt_path,
+        const std::string& output_dir,
+        bool enable_artificial = true);
+
 private:
-    //文件路径
     std::string color_png_;
     std::string costmap_dir_ = "out_put/costmap";
     std::string costmap_file_;
+    std::string output_dir_;
+
+    bool external_fixed_mode_ = false;
+    bool overwrite_path_mode_ = false;
+    bool keyboard_driven_mode_ = false;
 
     cv::Mat base_img_;
     cv::Mat display_;
-
-    cv::Mat costmap_;                    // CV_64FC1  1.0=障碍 存储原始代价图
-    cv::Mat costmap_add_;                // 叠加的代价图 可以用costmap_还原
+    cv::Mat costmap_;
+    cv::Mat costmap_add_;
 
     cv::Point start_pt_ = cv::Point(-1, -1);
     cv::Point goal_pt_ = cv::Point(-1, -1);
 
-    int  strategy_ = 0;     // 1 slope 2 rough 3 step 4 merge
+    int strategy_ = 0;
     bool dist_first_ = false;
     bool expand_ = false;
-    bool use_artificial_ = false;         // 是否启用人工代价
+    bool use_artificial_ = false;
 
-    // 人工点选择状态
-    enum class State { SELECT_START = 0, SELECT_GOAL, SELECT_ARTI_TYPE, SELECT_ARTI_POINT };
+    enum class State {
+        SELECT_START = 0,
+        SELECT_GOAL,
+        SELECT_ARTI_TYPE,   // 旧模式专用
+        SELECT_ARTI_POINT   // 新模式 / 旧模式都可用
+    };
     State current_state_ = State::SELECT_START;
-    bool is_guide_next_ = true;  // 下一个待选人工点类型
-    int arti_counter_ = 0;       // 已选人工点计数             
-    std::vector<cv::Point> guide_pts_;      // 导引点序列
-    std::vector<cv::Point> reject_pts_;     // 排斥点序列
 
-    int radius = 100;  // 圆形影响范围半径（像素）
+    enum class ArtificialMode {
+        NONE = 0,
+        GUIDE,
+        REJECT
+    };
+    ArtificialMode current_artificial_mode_ = ArtificialMode::NONE;
 
-    PathPlanner::Method planning_method_ = PathPlanner::Method::AStar;//使用A*方法
+    bool is_guide_next_ = true;
+    int arti_counter_ = 0;
+
+    std::vector<cv::Point> guide_pts_;
+    std::vector<cv::Point> reject_pts_;
+    int radius = 100;
+
+    PathPlanner::Method planning_method_ = PathPlanner::Method::AStar;
 
     void consoleInput_();
     void loadColorImage_();
     void searchCostmapFile_();
     void loadCostmap_();
     void showAndInteract_();
-    
-    
     void redraw_(const std::vector<cv::Point>& path = {});
-    bool isObstacle_(int x, int y) const { return std::abs(costmap_.at<double>(y, x) - 1.0) < 1e-6; }
+    void replanAndRefresh_();
+
+    bool isObstacle_(int x, int y) const {
+        return std::abs(costmap_.at<double>(y, x) - 1.0) < 1e-6;
+    }
+
     void savePath_(const std::vector<cv::Point>& path) const;
+
     static void mouseCallback_(int event, int x, int y, int flags, void* userdata);
     void onMouse_(int x, int y);
 
-    // 人工代价相关函数
-    void selectArtificialPointsLoop_();                    // 人工点选择主循环
-    void addArtificialCost_(const cv::Point& center, bool is_guide);  // 添加单个人工代价
-    cv::Mat computeArtificialCostmap_(const cv::Point& center, bool is_guide) const;  // 计算单个人工代价图
-    double artificialCostFunction_(double dist, bool is_guide) const;  // 代价函数计算
-    std::string generateArtificialSuffix_() const;       // 生成文件名后缀
+    // 旧模式专用：保留原始控制台人工点流程
+    void selectArtificialPointsLoop_();
+
+    void addArtificialCost_(const cv::Point& center, bool is_guide);
+    cv::Mat computeArtificialCostmap_(const cv::Point& center, bool is_guide) const;
+    double artificialCostFunction_(double dist, bool is_guide) const;
+    std::string generateArtificialSuffix_() const;
+
+    // 新模式提示
+    void printInteractionHelp_() const;
+    void printCurrentStateHint_() const;
 };

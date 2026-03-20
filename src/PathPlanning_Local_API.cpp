@@ -154,7 +154,7 @@ PathPlanning_Local_API::PlanResult PathPlanning_Local_API::planFromDEM(const cv:
     TerrainRoughness rough(dem, dummy_root, grid_size, 0.15, 1e10, false);
     TerrainStepEdge step(dem, dummy_root, 0.4, 1e10, false);
 
-    TerrainObstacleExpand expand( tsa.obstacle(),rough.obstacle(),step.step_obstacle(),dummy_root, grid_size*1000,grid_size, false);
+    TerrainObstacleExpand expand( tsa.obstacle(),rough.obstacle(),step.step_obstacle(),dummy_root, 1000 ,grid_size, false);
 
     TerrainCostmapFusion fusion(tsa,rough,step,expand,dummy_root,false);
 
@@ -241,7 +241,7 @@ PathPlanning_Local_API::PlanResult PathPlanning_Local_API::planFromCostmap(const
 }
 
 
-void PathPlanning_Local_API::saveResultToFile(const PlanResult& result,const std::string& output_path)
+void PathPlanning_Local_API::saveResultToFile(const PlanResult& result,const std::string& output_path, bool Isexportcostmap)
 {
     namespace fs = std::filesystem;
 
@@ -299,27 +299,29 @@ void PathPlanning_Local_API::saveResultToFile(const PlanResult& result,const std
     // ============================
     // 2. –¥»Î costmap
     // ============================
+    if (Isexportcostmap)
+    {
+        if (result.costmap.empty()) {
+            throw std::runtime_error("saveResultToFile: result.costmap is empty.");
+        }
 
-    if (result.costmap.empty()) {
-        throw std::runtime_error("saveResultToFile: result.costmap is empty.");
-    }
+        std::ofstream cost_ofs(costmap_file.string());
+        if (!cost_ofs.is_open()) {
+            throw std::runtime_error("Cannot open costmap output file: " + costmap_file.string());
+        }
 
-    std::ofstream cost_ofs(costmap_file.string());
-    if (!cost_ofs.is_open()) {
-        throw std::runtime_error("Cannot open costmap output file: " + costmap_file.string());
-    }
-
-    for (int y = 0; y < result.costmap.rows; ++y) {
-        for (int x = 0; x < result.costmap.cols; ++x) {
-            cost_ofs << result.costmap.at<double>(y, x);
-            if (x + 1 < result.costmap.cols) {
-                cost_ofs << " ";
+        for (int y = 0; y < result.costmap.rows; ++y) {
+            for (int x = 0; x < result.costmap.cols; ++x) {
+                cost_ofs << result.costmap.at<double>(y, x);
+                if (x + 1 < result.costmap.cols) {
+                    cost_ofs << " ";
+                }
+            }
+            if (y + 1 < result.costmap.rows) {
+                cost_ofs << "\n";
             }
         }
-        if (y + 1 < result.costmap.rows) {
-            cost_ofs << "\n";
-        }
-    }
 
-    cost_ofs.close();
+        cost_ofs.close();
+    }
 }
