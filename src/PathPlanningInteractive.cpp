@@ -12,12 +12,33 @@
 
 namespace fs = std::filesystem;
 
+namespace {
+    /* 将规划方法枚举转换为可读字符串，便于日志输出 */
+    const char* plannerMethodName(PathPlanner::Method method)
+    {
+        switch (method) {
+        case PathPlanner::Method::AStar:
+            return "A*";
+        case PathPlanner::Method::DStarLite:
+            return "D* Lite";
+        case PathPlanner::Method::HybridAStar:
+            return "Hybrid A*";
+        case PathPlanner::Method::BidirectionalAStar:
+            return "Bidirectional A*";
+        default:
+            return "Unknown Planner";
+        }
+    }
+}
+
+
 /* ---------------- 构造：旧模式 ---------------- */
-PathPlanningInteractive::PathPlanningInteractive(const std::string& color_png_path)
+PathPlanningInteractive::PathPlanningInteractive(const std::string& color_png_path, PathPlanner::Method method)
     : color_png_(color_png_path),
     external_fixed_mode_(false),
     overwrite_path_mode_(false),
-    keyboard_driven_mode_(false) {
+    keyboard_driven_mode_(false),
+    planning_method_(method) {
     consoleInput_();
     loadColorImage_();
     searchCostmapFile_();
@@ -29,14 +50,15 @@ PathPlanningInteractive::PathPlanningInteractive(const std::string& color_png_pa
 PathPlanningInteractive::PathPlanningInteractive(const std::string& color_png_path,
     const std::string& costmap_txt_path,
     const std::string& output_dir,
-    bool enable_artificial)
+    bool enable_artificial, PathPlanner::Method method)
     : color_png_(color_png_path),
     costmap_file_(costmap_txt_path),
     output_dir_(output_dir),
     external_fixed_mode_(true),
     overwrite_path_mode_(true),
     keyboard_driven_mode_(true),
-    use_artificial_(enable_artificial) {
+    use_artificial_(enable_artificial),
+    planning_method_(method) {
     loadColorImage_();
     loadCostmap_();
     showAndInteract_();
@@ -165,6 +187,7 @@ void PathPlanningInteractive::loadCostmap_() {
 void PathPlanningInteractive::printInteractionHelp_() const {
     std::cout
         << "\n=== Interactive Global Path Planning ===\n"
+        << "[Current planner] " << plannerMethodName(planning_method_) << "\n"
         << "[Mouse]\n"
         << "  Left click #1 : select start point\n"
         << "  Left click #2 : select goal point\n"
@@ -357,11 +380,11 @@ void PathPlanningInteractive::replanAndRefresh_() {
         return;
     }
 
-    std::cout << "Running A* ...\n" << std::flush;
+    std::cout << "Running " << plannerMethodName(planning_method_) << " ...\n" << std::flush;
     auto path = PathPlanner::plan(planning_method_, costmap_add_, start_pt_, goal_pt_);
 
     if (path.empty()) {
-        std::cout << "No path found!\n" << std::flush;
+        std::cout << "No path found by " << plannerMethodName(planning_method_) << "!\n" << std::flush;
         redraw_();
         return;
     }
@@ -573,11 +596,11 @@ void PathPlanningInteractive::onMouse_(int x, int y) {
         redraw_();
         cv::waitKey(50);
 
-        std::cout << "Running A* ...\n" << std::flush;
+        std::cout << "Running " << plannerMethodName(planning_method_) << " ...\n" << std::flush;
         auto path = PathPlanner::plan(planning_method_, costmap_add_, start_pt_, goal_pt_);
 
         if (path.empty()) {
-            std::cout << "No path found!\n" << std::flush;
+            std::cout << "No path found by " << plannerMethodName(planning_method_) << "!\n" << std::flush;
             current_state_ = State::SELECT_START;
             redraw_();
             cv::waitKey(50);
@@ -668,11 +691,13 @@ void PathPlanningInteractive::onMouse_(int x, int y) {
 
         addArtificialCost_(cv::Point(x, y), is_guide_next_);
 
-        std::cout << "Re-running A* with artificial cost...\n" << std::flush;
+        std::cout << "Re-running " << plannerMethodName(planning_method_)
+            << " with artificial cost...\n" << std::flush;
         auto path = PathPlanner::plan(planning_method_, costmap_add_, start_pt_, goal_pt_);
 
         if (path.empty()) {
-            std::cout << "No path found with current artificial points!\n" << std::flush;
+            std::cout << "No path found by " << plannerMethodName(planning_method_)
+                << " with current artificial points!\n" << std::flush;
             redraw_();
             cv::waitKey(50);
         }

@@ -21,14 +21,29 @@ add_executable(${PROJECT_NAME}        # ${} 是取变量，这里 = 上面 proje
 
 # 把头文件搜索路径告诉编译器，这样写 #include "xxx.h" 时不用写相对路径
 target_include_directories(${PROJECT_NAME}
-    PRIVATE                           # 仅这个靶标（即可执行文件）可见
+    PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${OpenCV_INCLUDE_DIRS}      # OpenCV 头文件路径
+        ${OpenCV_INCLUDE_DIRS}
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/eigen-5.0.0
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/steering_functions/include  
+)
+
+# 源码
+file(GLOB STEERING_SRC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/steering_functions/src/reeds_shepp_state_space/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/steering_functions/src/utilities/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/steering_functions/src/filter/*.cpp
+)
+
+target_sources(${PROJECT_NAME}
+    PRIVATE
+        ${STEERING_SRC}
 )
 
 #收集 OpenCV 所有 dll（路径随 OpenCV_DIR 自动定位）
 file(GLOB OPENCV_DLLS
      "${OpenCV_DIR}/x64/vc16/bin/*.dll")
+
 
 #构建完成后复制到 exe 同级目录
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

@@ -2,6 +2,7 @@
 #include <opencv2/core.hpp>
 #include <string>
 #include <vector>
+#include "PathPlanner.hpp"  // 包含以使用 PathPlanner::Method
 
 class PathPlanning_Local_API {
 public:
@@ -27,10 +28,12 @@ public:
     static cv::Mat loadCostmapFromTxt(const std::string& txt_path);
 
     // 从 DEM 矩阵直接规划，内部会先计算 costmap
-    static PlanResult planFromDEM(const cv::Mat& dem,const cv::Point& start,const cv::Point& goal, const double grid_size);
+    static PlanResult planFromDEM(const cv::Mat& dem,const cv::Point& start,const cv::Point& goal, const double grid_size,
+        PathPlanner::Method method = PathPlanner::Method::AStar);
     
     // 直接从已计算好的 costmap 规划
-    static PlanResult planFromCostmap(const cv::Mat& costmap,const cv::Point& start,const cv::Point& goal);
+    static PlanResult planFromCostmap(const cv::Mat& costmap,const cv::Point& start,const cv::Point& goal,
+        PathPlanner::Method method = PathPlanner::Method::AStar);
     
     // 统一保存结果到文件
     // output_path 作为主输出文件路径：

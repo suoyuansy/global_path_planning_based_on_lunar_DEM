@@ -7,13 +7,14 @@
 class PathPlanningInteractive {
 public:
     // 旧模式
-    explicit PathPlanningInteractive(const std::string& color_png_path);
+    explicit PathPlanningInteractive(const std::string& color_png_path, PathPlanner::Method method = PathPlanner::Method::AStar);
 
     // 新模式：外部固定 costmap + 输出目录
+    // 新增：method 参数指定规划算法（0=AStar, 1=DStarLite, 2=HybridAStar, 3=BidirectionalAStar）
     PathPlanningInteractive(const std::string& color_png_path,
         const std::string& costmap_txt_path,
         const std::string& output_dir,
-        bool enable_artificial = true);
+        bool enable_artificial = true, PathPlanner::Method method = PathPlanner::Method::AStar);
 
 private:
     std::string color_png_;
@@ -60,7 +61,7 @@ private:
     std::vector<cv::Point> reject_pts_;
     int radius = 100;
 
-    PathPlanner::Method planning_method_ = PathPlanner::Method::AStar;
+    PathPlanner::Method planning_method_;  // 移除默认初始化，改为构造函数中设置
 
     void consoleInput_();
     void loadColorImage_();

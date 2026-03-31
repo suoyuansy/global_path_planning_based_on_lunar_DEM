@@ -136,7 +136,7 @@ cv::Mat PathPlanning_Local_API::loadCostmapFromTxt(const std::string& txt_path)
 
 
 
-PathPlanning_Local_API::PlanResult PathPlanning_Local_API::planFromDEM(const cv::Mat& dem,const cv::Point& start,const cv::Point& goal, const double grid_size)
+PathPlanning_Local_API::PlanResult PathPlanning_Local_API::planFromDEM(const cv::Mat& dem,const cv::Point& start,const cv::Point& goal, const double grid_size, PathPlanner::Method method)
 {
     if (dem.empty() || dem.type() != CV_64FC1)
         throw std::runtime_error("planFromDEM: dem must be CV_64FC1.");
@@ -152,9 +152,9 @@ PathPlanning_Local_API::PlanResult PathPlanning_Local_API::planFromDEM(const cv:
 
     TerrainSlopeAspect tsa(dem, dummy_root, grid_size, 20.0, 1e10, false);
     TerrainRoughness rough(dem, dummy_root, grid_size, 0.15, 1e10, false);
-    TerrainStepEdge step(dem, dummy_root, 0.4, 1e10, false);
+    TerrainStepEdge step(dem, dummy_root, 0.3, 1e10, false);
 
-    TerrainObstacleExpand expand( tsa.obstacle(),rough.obstacle(),step.step_obstacle(),dummy_root, 1000 ,grid_size, false);
+    TerrainObstacleExpand expand( tsa.obstacle(),rough.obstacle(),step.step_obstacle(),dummy_root, 750 ,grid_size, false);
 
     TerrainCostmapFusion fusion(tsa,rough,step,expand,dummy_root,false);
 
@@ -182,7 +182,7 @@ PathPlanning_Local_API::PlanResult PathPlanning_Local_API::planFromDEM(const cv:
     }
 
     // 再做路径规划
-    result.path = PathPlanner::plan(PathPlanner::Method::AStar,costmap,start,goal);
+    result.path = PathPlanner::plan(method,costmap,start,goal);
 
     // 空路径表示未找到路径
     if (result.path.empty()) {
@@ -196,7 +196,7 @@ PathPlanning_Local_API::PlanResult PathPlanning_Local_API::planFromDEM(const cv:
 }
 
 
-PathPlanning_Local_API::PlanResult PathPlanning_Local_API::planFromCostmap(const cv::Mat& costmap,const cv::Point& start,const cv::Point& goal)
+PathPlanning_Local_API::PlanResult PathPlanning_Local_API::planFromCostmap(const cv::Mat& costmap,const cv::Point& start,const cv::Point& goal, PathPlanner::Method method)
 {
     if (costmap.empty() || costmap.type() != CV_64FC1)
         throw std::runtime_error("planFromCostmap: costmap must be CV_64FC1.");
@@ -228,7 +228,7 @@ PathPlanning_Local_API::PlanResult PathPlanning_Local_API::planFromCostmap(const
         return result;
     }
 
-    result.path = PathPlanner::plan(PathPlanner::Method::AStar, costmap, start, goal);
+    result.path = PathPlanner::plan(method, costmap, start, goal);
 
     if (result.path.empty()) {
         result.status = PlanStatus::NO_PATH_FOUND;

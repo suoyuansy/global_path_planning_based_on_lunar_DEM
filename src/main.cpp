@@ -17,6 +17,22 @@
 
 
 
+// =========================================================
+// 辅助函数：将整数转换为 PathPlanner::Method
+// =========================================================
+PathPlanner::Method parsePlannerMethod(int method_id) {
+    switch (method_id) {
+    case 0: return PathPlanner::Method::AStar;
+    case 1: return PathPlanner::Method::DStarLite;
+    case 2: return PathPlanner::Method::HybridAStar;
+    case 3: return PathPlanner::Method::BidirectionalAStar;
+    default:
+        throw std::runtime_error("Invalid planner method ID: " + std::to_string(method_id) +
+            ". Valid values: 0=AStar, 1=DStarLite, 2=HybridAStar, 3=BidirectionalAStar");
+    }
+}
+
+
 int main(int argc, char** argv) {
     // 关闭 OpenCV 冗余日志
     cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_ERROR);
@@ -24,34 +40,38 @@ int main(int argc, char** argv) {
     try {
 
         // =========================================================
-       // 模式1：Python / 局部路径规划调用模式
-       //
-       // 用法：
-       // program.exe dem.txt start_x start_y goal_x goal_y grid_size output.txt
-       //
-       // 参数说明：
-       // argv[1] : dem_txt_path
-       // argv[2] : start_x
-       // argv[3] : start_y
-       // argv[4] : goal_x
-       // argv[5] : goal_y
-       // argv[6] : grid_size
-       // argv[7] : output_txt_path，是一个文件夹路径，路径的txt与costmap的txt文件都生成在这个文件夹下面
-       // =========================================================
-        if (argc == 8) {
+               // 模式1：Python / 局部路径规划调用模式
+               //
+               // 用法：
+               // program.exe dem.txt start_x start_y goal_x goal_y grid_size method output.txt
+               //
+               // 参数说明：
+               // argv[1] : dem_txt_path
+               // argv[2] : start_x
+               // argv[3] : start_y
+               // argv[4] : goal_x
+               // argv[5] : goal_y
+               // argv[6] : grid_size
+               // argv[7] : method (0=AStar, 1=DStarLite, 2=HybridAStar, 3=BidirectionalAStar)
+               // argv[8] : output_txt_path，是一个文件夹路径，路径的txt与costmap的txt文件都生成在这个文件夹下面
+               // =========================================================
+        if (argc == 9) {
             const std::string dem_txt_path = argv[1];
             const int start_x = std::stoi(argv[2]);
             const int start_y = std::stoi(argv[3]);
             const int goal_x = std::stoi(argv[4]);
             const int goal_y = std::stoi(argv[5]);
             const double grid_size = std::stod(argv[6]);
-            const std::string output_txt_path = argv[7];
+            const int method_id = std::stoi(argv[7]);
+            const std::string output_txt_path = argv[8];
             // 从 txt 读取 DEM
             cv::Mat dem = PathPlanning_Local_API::loadDEMFromTxt(dem_txt_path);
+            // 转换算法ID
+            PathPlanner::Method method = parsePlannerMethod(method_id);
             // 调用 API 完成规划
-            PathPlanning_Local_API::PlanResult result = PathPlanning_Local_API::planFromDEM(dem,cv::Point(start_x, start_y),cv::Point(goal_x, goal_y),grid_size);
+            PathPlanning_Local_API::PlanResult result = PathPlanning_Local_API::planFromDEM(dem, cv::Point(start_x, start_y), cv::Point(goal_x, goal_y), grid_size, method);
             // 将结果保存到路径
-            PathPlanning_Local_API::saveResultToFile(result, output_txt_path,true);
+            PathPlanning_Local_API::saveResultToFile(result, output_txt_path, true);
             return 0;
         }
 
@@ -59,7 +79,7 @@ int main(int argc, char** argv) {
        // 模式2：外部直接传入 costmap 的局部路径规划模式
        //
        // 用法：
-       // program.exe costmap.txt start_x start_y goal_x goal_y output_dir
+       // program.exe costmap.txt start_x start_y goal_x goal_y method output_dir
        //
        // 参数说明：
        // argv[1] : costmap_txt_path
@@ -67,18 +87,22 @@ int main(int argc, char** argv) {
        // argv[3] : start_y
        // argv[4] : goal_x
        // argv[5] : goal_y
-       // argv[6] : output_dir
+       // argv[6] : method (0=AStar, 1=DStarLite, 2=HybridAStar, 3=BidirectionalAStar)
+       // argv[7] : output_dir
        // =========================================================
-        if (argc == 7) {
+        if (argc == 8) {
             const std::string costmap_txt_path = argv[1];
             const int start_x = std::stoi(argv[2]);
             const int start_y = std::stoi(argv[3]);
             const int goal_x = std::stoi(argv[4]);
             const int goal_y = std::stoi(argv[5]);
-            const std::string output_txt_path = argv[6];
+            const int method_id = std::stoi(argv[6]);
+            const std::string output_txt_path = argv[7];
             cv::Mat costmap = PathPlanning_Local_API::loadCostmapFromTxt(costmap_txt_path);
-            PathPlanning_Local_API::PlanResult result =PathPlanning_Local_API::planFromCostmap(costmap,cv::Point(start_x, start_y),cv::Point(goal_x, goal_y));
-            PathPlanning_Local_API::saveResultToFile(result, output_txt_path,false);
+            // 转换算法ID
+            PathPlanner::Method method = parsePlannerMethod(method_id);
+            PathPlanning_Local_API::PlanResult result = PathPlanning_Local_API::planFromCostmap(costmap, cv::Point(start_x, start_y), cv::Point(goal_x, goal_y), method);
+            PathPlanning_Local_API::saveResultToFile(result, output_txt_path, false);
             return 0;
         }
 
@@ -86,13 +110,14 @@ int main(int argc, char** argv) {
         // 模式3：外部调用全局路径规划交互模式
         //
         // 用法：
-        // program.exe <tiff_path> <tiff_color_path> <result_dir> <grid_size>
+        // program.exe <tiff_path> <tiff_color_path> <result_dir> <grid_size> <method>
         //
         // 参数说明：
         // argv[1] : tiff_path
         // argv[2] : tiff_color_path
         // argv[3] : result_dir
         // argv[4] : grid_size
+        // argv[5] : method (0=AStar, 1=DStarLite, 2=HybridAStar, 3=BidirectionalAStar)
         //
         // 输出：
         // result_dir/dem.txt
@@ -105,26 +130,32 @@ int main(int argc, char** argv) {
         // - 不再需要控制台策略选择
         // - 鼠标重复选点时 path.txt 持续覆盖
         // =========================================================
-        if (argc == 5) {
+        if (argc == 6) {
             const std::string tiff_path = argv[1];
             const std::string tiff_color_path = argv[2];
             const std::string result_dir = argv[3];
             const double grid_size = std::stod(argv[4]);
+            const int method_id = std::stoi(argv[5]);
 
             namespace fs = std::filesystem;
             fs::create_directories(result_dir);
 
-            PathPlanning_Global_API::BuildResult result =PathPlanning_Global_API::buildFromTiff(tiff_path, result_dir, grid_size);
+            PathPlanning_Global_API::BuildResult result = PathPlanning_Global_API::buildFromTiff(tiff_path, result_dir, grid_size);
+
+            // 转换算法ID
+            PathPlanner::Method method = parsePlannerMethod(method_id);
 
             PathPlanningInteractive planner(
                 tiff_color_path,
                 result_dir + "/costmap.txt",
                 result_dir,
-                true
+                true,
+                method
             );
 
             return 0;
         }
+
 
         // =========================================================
         // 模式4：原始直接运行模式
@@ -163,7 +194,7 @@ int main(int argc, char** argv) {
             //TerrainCostmapFusion fusion(tsa, rough, step, expand, result_file);
 
             std::cout << "\n******** Part 7:Interactive path planning ********\n" << std::endl;
-            PathPlanningInteractive planner(tiff_coler_path);
+            PathPlanningInteractive planner(tiff_coler_path, PathPlanner::Method::HybridAStar);
 
             return 0;
         }
@@ -172,11 +203,11 @@ int main(int argc, char** argv) {
               //
               // 当前支持四种模式：
               // 1. 外部调用局部路径规划模式（从 DEM 计算 costmap，再规划）
-              //    对应 argc == 8
+              //    对应 argc == 9
               // 2. 外部直接传入 costmap 的局部路径规划模式
-              //    对应 argc == 7
+              //    对应 argc == 8
               // 3. 外部调用全局路径规划交互模式
-              //    对应 argc == 4
+              //    对应 argc == 6
               // 4. 原始直接运行模式（无参数）
               //    对应 argc == 1
               // =========================================================
@@ -185,22 +216,25 @@ int main(int argc, char** argv) {
 
             << "  Mode 1) External local path planning from DEM:\n"
             << "     " << argv[0]
-            << " <dem_txt_path> <start_x> <start_y> <goal_x> <goal_y> <grid_size> <output_dir>\n"
+            << " <dem_txt_path> <start_x> <start_y> <goal_x> <goal_y> <grid_size> <method> <output_dir>\n"
+            << "     method: 0=AStar, 1=DStarLite, 2=HybridAStar, 3=BidirectionalAStar\n"
             << "     Example:\n"
             << "     " << argv[0]
-            << " dem.txt 37 52 966 966 1.0 local_planning_output\n\n"
+            << " dem.txt 37 52 966 966 1.0 0 local_planning_output\n\n"
 
             << "  Mode 2) External local path planning from costmap:\n"
             << "     " << argv[0]
-            << " <costmap_txt_path> <start_x> <start_y> <goal_x> <goal_y> <output_dir>\n"
+            << " <costmap_txt_path> <start_x> <start_y> <goal_x> <goal_y> <method> <output_dir>\n"
+            << "     method: 0=AStar, 1=DStarLite, 2=HybridAStar, 3=BidirectionalAStar\n"
             << "     Example:\n"
             << "     " << argv[0]
-            << " costmap.txt 37 52 966 966 local_planning_output\n\n"
+            << " costmap.txt 37 52 966 966 0 local_planning_output\n\n"
 
             << " Mode 3) External global path planning interactive mode:\n"
-            << "   " << argv[0] << " <tiff_path> <tiff_color_path> <result_dir> <grid_size>\n"
+            << "   " << argv[0] << " <tiff_path> <tiff_color_path> <result_dir> <grid_size> <method>\n"
+            << "   method: 0=AStar, 1=DStarLite, 2=HybridAStar, 3=BidirectionalAStar\n"
             << " Example:\n"
-            << "   " << argv[0] << " data/CE7DEM_1km.tif data/CE7DEM_1km_color.png global_path_file 1.0\n\n"
+            << "   " << argv[0] << " data/CE7DEM_1km.tif data/CE7DEM_1km_color.png global_path_file 1.0 2\n\n"
 
             << "  Mode 4) Default interactive mode:\n"
             << "     " << argv[0] << "\n"
